@@ -5,34 +5,37 @@
 #include <vector>
 #include <string>
 #include <signal.h>
+#include <conio.h>
 
 #pragma comment(lib, "Ws2_32.lib")
 using namespace std;
 SOCKET ClientSock;
-
-
-void ctrl_c_handler(int signum)
-{
-	printf("\n ctrl+z \n");
-}
+const int MAX_SIZE_ONE_SEND_MESSAGE=128000;
 
 void ClientHandler() 
 {
-	int msg_size;
+	setlocale(LC_ALL, "russian");
+	uint64_t msg_size;
 	while (1) 
 	{
-		recv(ClientSock, (char*)&msg_size, sizeof(int), 0);
-		char* msg = new char[msg_size + 1];
-		msg[msg_size] = '\0';
-		recv(ClientSock, msg, msg_size, 0);
-		cout << msg << endl;
-		delete[]msg;
+		if (recv(ClientSock, (char*)&msg_size, sizeof(int), 0) > 0) {
+			char* msg = new char[msg_size + 1];
+			msg[msg_size] = '\0';
+			recv(ClientSock, msg, msg_size, 0);
+			cout << msg << endl;
+			delete[]msg;
+		}
+		else 
+		{
+			cout << "Сервер не отвечает\n";
+			break;
+		}
 	}
 }
 
 int main()
 {
-	setlocale(LC_ALL, "rus");
+	setlocale(LC_ALL, "russian");
 	WSADATA wsData;
 	int erStat = WSAStartup(MAKEWORD(2, 2), &wsData);
 
@@ -85,15 +88,40 @@ int main()
 	cout << "Connection established SUCCESSFULLY. Ready to send a message to Server"<< endl;
 
 	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)ClientHandler, 0, 0, 0);
-	string msgl;
 	while (1) 
 	{
-		getline(cin, msgl);
-
-		if (signal(SIGINT, ctrl_c_handler) == SIG_ERR)
-			return 1;
-
+		string msgl;
+		char ch = 0;
+		ch = 0;
+		while (ch != 13) 
+		{
+			ch = _getch();
+			if (ch !=22 && ch!= 24 && ch!= 28) {
+				msgl += ch;
+				cout << ch;
+			}
+		}
+		ch = 0;
+		cout << "\n";
 		int msg_size = msgl.size();
+		int CountPartSendings = msgl.size() / MAX_SIZE_ONE_SEND_MESSAGE;
+		for (int i = 0; i < CountPartSendings; i++)
+		{
+			if (i != CountPartSendings - 1) {
+				string msg = msgl.substr(i*MAX_SIZE_ONE_SEND_MESSAGE, MAX_SIZE_ONE_SEND_MESSAGE);
+				int msg_size = msg.size();
+				send(ClientSock, (char*)&msg_size, sizeof(int), 0);
+				send(ClientSock, msg.c_str(), msg_size, 0);
+				Sleep(10);
+			}
+			else {
+				string msg = msgl.substr(i*MAX_SIZE_ONE_SEND_MESSAGE, msgl.length() - i * MAX_SIZE_ONE_SEND_MESSAGE);
+				int msg_size = msg.size();
+				send(ClientSock, (char*)&msg_size, sizeof(int), 0);
+				send(ClientSock, msg.c_str(), msg_size, 0);
+				Sleep(10);
+			}
+		}
 		send(ClientSock, (char*)&msg_size, sizeof(int), 0);
 		send(ClientSock, msgl.c_str(), msg_size, 0);
 		Sleep(10);

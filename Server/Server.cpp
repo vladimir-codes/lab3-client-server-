@@ -13,21 +13,30 @@ int Counter = 0;
 
 void ClientHandler(int index)
 {
-	int msg_size;
-	while (true) 
+	setlocale(LC_ALL, "rus");
+	uint64_t msg_size;
+	while (1) 
 	{	
-		recv(connections[index], (char*)&msg_size, sizeof(int), 0);
-		char *msg = new char[msg_size + 1];
-		msg[msg_size] = '\0';
-		recv(connections[index], msg, msg_size, 0);
-		for (int i = 0; i < Counter; i++) 
-		{
-			if (i == index) continue;
+		if (recv(connections[index], (char*)&msg_size, sizeof(int), 0)>0) {
+			char *msg = new char[msg_size + 1];
+			msg[msg_size] = '\0';
+			recv(connections[index], msg, msg_size, 0);
+			for (int i = 0; i < Counter; i++)
+			{
+				if (i == index) continue;
 
-			send(connections[i], (char*)&msg_size, sizeof(int), 0);
-			send(connections[i], msg, msg_size, 0);
+				send(connections[i], (char*)&msg_size, sizeof(int), 0);
+				send(connections[i], msg, msg_size, 0);
+			}
+			delete[]msg;
 		}
-		delete[]msg;
+		else 
+		{
+			closesocket(connections[index]);
+			connections[index] = INVALID_SOCKET;
+			cout << "Клиент " << index << " отключился\n";
+			return;
+		}
 	}
 }
 
@@ -112,7 +121,7 @@ int main()
 			continue;
 		}
 		else
-			cout << "Connection to a client established successfully" << endl;
+			cout << "Подключился клиент "<<Counter<< endl;
 			connections[i] = ClientConn;
 			Counter++;
 			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)ClientHandler, (LPVOID)(i), 0, 0);
@@ -120,10 +129,6 @@ int main()
 	}
 
 	closesocket(ServSock);
-	for (SOCKET var : connections)
-	{
-		closesocket(var);
-	}
 	WSACleanup();
 
 	return 0;
